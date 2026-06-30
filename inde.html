@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>円盤型カスタムルーレット（自動分割）</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --accent: #f59e0b;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e1e2f, #0f172a);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            margin-top: 0;
+            margin-bottom: 20px;
+            background: linear-gradient(to right, #818cf8, #e0e7ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+        }
+
+        /* 設定エリア */
+        .setup-area {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 16px;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-add {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .item-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        .item-tag {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 4px 10px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+
+        .btn-delete {
+            background: transparent;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0;
+        }
+
+        .btn-delete:hover {
+            color: var(--danger);
+        }
+
+        /* ーーー 円盤ルーレット本体のスタイル ーーー */
+        .roulette-wrapper {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 0 auto 25px auto;
+        }
+
+        /* 上部の固定インジケーター（矢印） */
+        .pointer {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-top: 22px solid var(--danger);
+            z-index: 10;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+
+        /* 回転する円盤本体 */
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            border: 4px solid #fff;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            /* JavaScriptで回転（transform: rotate）を制御。イージングで滑らかな減速を実現 */
+            transition: transform 4s cubic-bezier(0.1, 0.8, 0.2, 1);
+        }
+
+        /* 円盤の中央のピン */
+        .center-pin {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 24px; height: 24px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            z-index: 5;
+        }
+
+        /* 円盤内の各テキスト */
+        .wheel-text {
+            position: absolute;
+            top: 0; left: 50%;
+            width: 100px;
+            margin-left: -50px;
+            height: 150px; /* 半径分 */
+            transform-origin: bottom center;
+            text-align: center;
+            padding-top: 20px;
+            box-sizing: border-box;
+            font-weight: bold;
+            font-size: 1rem;
+            color: #fff;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            z-index: 2;
+        }
+
+        /* ーーー アクション・結果 ーーー */
+        .btn-start {
+            background: linear-gradient(135deg, var(--primary), #4f46e5);
+            color: white;
+            border: none;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 12px 0;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 6px 12px rgba(99, 102, 241, 0.3);
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn-start:disabled {
+            background: #334155;
+            color: #64748b;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        .result-box {
+            margin-top: 20px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            min-height: 35px;
+            color: var(--accent);
+            transition: transform 0.3s ease;
+        }
+        
+        /* 当選時のエフェクト */
+        .result-box.winner-effect {
+            transform: scale(1.15);
+            text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>CUSTOM WHEEL ROULETTE</h1>
+
+        <div class="setup-area">
+            <div class="input-group">
+                <input type="text" id="itemInput" placeholder="項目を入力（例: 大吉、肉、宿題）" onkeypress="handleKeyPress(event)">
+                <button class="btn-add" onclick="addItem()">追加</button>
+            </div>
+            <ul class="item-list" id="itemList"></ul>
+        </div>
+
+        <div class="roulette-wrapper">
+            <div class="pointer"></div>
+            <div class="center-pin"></div>
+            <div class="wheel" id="wheel">
+                </div>
+        </div>
+
+        <button class="btn-start" id="startBtn" onclick="startRoulette()">ルーレットを回す</button>
+
+        <div class="result-box" id="resultBox"></div>
+    </div>
+
+    <script>
+        // 初期の項目
+        let items = ["大吉", "中吉", "小吉", "ハズレ"];
+        
+        // 円盤の配色用カラーパレット
+        const colors = [
+            "#e63946", "#f1faee", "#a8dadc", "#457b9d", "#1d3557", 
+            "#f9c74f", "#90be6d", "#43aa8b", "#577590", "#f3722c"
+        ];
+
+        let currentRotation = 0;
+        let isSpinning = false;
+
+        function init() {
+            renderList();
+            drawWheel();
+        }
+
+        // ① リスト描画
+        function renderList() {
+            const listEl = document.getElementById("itemList");
+            listEl.innerHTML = "";
+            items.forEach((item, index) => {
+                const li = document.createElement("li");
+                li.className = "item-tag";
+                li.innerHTML = `
+                    <span>${item}</span>
+                    <button class="btn-delete" onclick="removeItem(${index})">×</button>
+                `;
+                listEl.appendChild(li);
+            });
+        }
+
+        // ② 円盤の自動分割・描画（CSSのconic-gradientを動的に書き換える）
+        function drawWheel() {
+            const wheelEl = document.getElementById("wheel");
+            wheelEl.innerHTML = ""; // テキストをクリア
+
+            const startBtn = document.getElementById("startBtn");
+            if (items.length === 0) {
+                wheelEl.style.background = "#334155";
+                startBtn.disabled = true;
+                return;
+            }
+            startBtn.disabled = false;
+
+            const angleStep = 360 / items.length;
+            let gradientSlices = [];
+
+            items.forEach((item, index) => {
+                const color = colors[index % colors.length];
+                
+                // conic-gradient用の比率文字列を生成 (例: #fff 0deg 90deg)
+                gradientSlices.push(`${color} ${angleStep * index}deg ${angleStep * (index + 1)}deg`);
+
+                // テキスト要素の配置と回転角度の計算
+                const textDiv = document.createElement("div");
+                textDiv.className = "wheel-text";
+                // 扇形の中央に文字が来るように、角度を半分進める
+                const textAngle = (angleStep * index) + (angleStep / 2);
+                textDiv.style.transform = `rotate(${textAngle}deg)`;
+                textDiv.innerText = item;
+                
+                // 背景が明るい色（白や薄い青）の時は文字色を黒っぽくして見やすくする
+                if (color === "#f1faee" || color === "#a8dadc") {
+                    textDiv.style.color = "#1e1e2f";
+                    textDiv.style.textShadow = "none";
+                }
+
+                wheelEl.appendChild(textDiv);
+            });
+
+            // 円盤の背景グラデーションを適用（これでピザ型に自動分割される）
+            wheelEl.style.background = `conic-gradient(${gradientSlices.join(", ")})`;
+        }
+
+        function addItem() {
+            const input = document.getElementById("itemInput");
+            const text = input.value.trim();
+            if (text === "") return;
+
+            items.push(text);
+            input.value = "";
+            renderList();
+            drawWheel();
+            document.getElementById("resultBox").innerText = "";
+            document.getElementById("resultBox").classList.remove("winner-effect");
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === "Enter") addItem();
+        }
+
+        function removeItem(index) {
+            items.splice(index, 1);
+            renderList();
+            drawWheel();
+            document.getElementById("resultBox").innerText = "";
+            document.getElementById("resultBox").classList.remove("winner-effect");
+        }
+
+        // ③ ルーレット回転ロジック
+        function startRoulette() {
+            if (isSpinning || items.length === 0) return;
+            isSpinning = true;
+
+            const startBtn = document.getElementById("startBtn");
+            const resultBox = document.getElementById("resultBox");
+            const wheel = document.getElementById("wheel");
+
+            startBtn.disabled = true;
+            resultBox.innerText = "運命のルーレットが回転中...";
+            resultBox.classList.remove("winner-effect");
+
+            const angleStep = 360 / items.length;
+            
+            // ランダムで当選インデックスを決定
+            const winningIndex = Math.floor(Math.random() * items.length);
+            
+            // 矢印（真上＝0度）の位置に当選判定を合わせるための計算
+            // 通常の回転だと時計回りに進むため、逆算して「真上にそのマスが来る角度」を求める
+            const targetAngle = 360 - (angleStep * winningIndex) - (angleStep / 2);
+
+            // 最低5回転(1800度)させてから、目的の角度で止まるように加算
+            const baseSpins = 5 * 360;
+            currentRotation += baseSpins + targetAngle - (currentRotation % 360);
+
+            // 円盤を回転させる（CSS transitionで滑らかに減速）
+            wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+            // アニメーション時間（4秒）が終わったら結果表示
+            setTimeout(() => {
+                endRoulette(winningIndex);
+            }, 4000);
+        }
+
+        // ④ 結果表示と当選エフェクト
+        function endRoulette(winnerIndex) {
+            const resultBox = document.getElementById("resultBox");
+            const startBtn = document.getElementById("startBtn");
+
+            // テキスト表示 ＋ 拡大エフェクトクラスの付与
+            resultBox.innerHTML = `🎉 当選：【${items[winnerIndex]}】`;
+            resultBox.classList.add("winner-effect");
+
+            isSpinning = false;
+            startBtn.disabled = false;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
